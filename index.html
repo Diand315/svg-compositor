@@ -5,7 +5,7 @@
     <meta name="author" content="Rock_4762">
     <meta name="description" content="A powerful SVG composition tool built with React.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SVG Compositor v1.0 (Cleaned)</title>
+    <title>SVG Compositor v1.1 (Cleaned)</title>
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -79,7 +79,7 @@
         // Stores all UI text for multi-language support (TW, CN, EN)
         const TRANSLATIONS = {
             'zh-TW': {
-                title: "SVG 合成器 v1.0",
+                title: "SVG 合成器 v1.1",
                 subtitle: "中鍵: 移動畫布 | 滾輪: 縮放",
                 smartTrim: "Smart Trim (自動裁切空白)",
                 previewWhiteBg: "預覽顯示白底 (下載時自動透明)",
@@ -103,10 +103,11 @@
                 cancel: "取消",
                 save: "儲存變更",
                 extractAlert: "請單選提取。",
-                noFileAlert: "無檔案！"
+                noFileAlert: "無檔案！",
+                dropHere: "拖曳檔案到這裡上傳"
             },
             'zh-CN': {
-                title: "SVG 合成器 v1.0",
+                title: "SVG 合成器 v1.1",
                 subtitle: "中键: 移动画布 | 滚轮: 缩放",
                 smartTrim: "Smart Trim (自动裁切空白)",
                 previewWhiteBg: "预览显示白底 (下载时自动透明)",
@@ -130,10 +131,11 @@
                 cancel: "取消",
                 save: "保存更改",
                 extractAlert: "请单选提取。",
-                noFileAlert: "无文件！"
+                noFileAlert: "无文件！",
+                dropHere: "拖拽文件到此处上传"
             },
             'en-US': {
-                title: "SVG Compositor v1.0",
+                title: "SVG Compositor v1.1",
                 subtitle: "Middle Click: Pan | Wheel: Zoom",
                 smartTrim: "Smart Trim (Auto-crop whitespace)",
                 previewWhiteBg: "Preview White BG (Transparent on Download)",
@@ -157,7 +159,8 @@
                 cancel: "Cancel",
                 save: "Save Changes",
                 extractAlert: "Please select a single item to extract.",
-                noFileAlert: "No files!"
+                noFileAlert: "No files!",
+                dropHere: "Drop files here to upload"
             }
         };
 
@@ -458,6 +461,9 @@
             const [autoTrim, setAutoTrim] = useState(true); // Auto-remove whitespace on upload
             const [previewWhiteBg, setPreviewWhiteBg] = useState(true); // White background vs transparent
 
+            // Drag hover state per group
+            const [dragOverGroupId, setDragOverGroupId] = useState(null);
+
             // Helper for translation
             const t = (key) => TRANSLATIONS[lang][key] || key;
 
@@ -526,6 +532,22 @@
                     return g;
                 }));
                 fileInput.value = ''; 
+            };
+
+            // Handle drop files
+            const handleDropFiles = async (groupId, fileList) => {
+                if (!fileList || fileList.length === 0) return;
+                const svgFiles = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.svg'));
+                if (svgFiles.length === 0) return;
+                const newFiles = await Promise.all(svgFiles.map(f => parseSvg(f)));
+                setGroups(prev => prev.map(g => {
+                    if (g.id === groupId) {
+                        const firstFile = newFiles[0];
+                        const isNew = g.files.length === 0;
+                        return { ...g, files: [...g.files, ...newFiles], w: isNew && firstFile ? firstFile.originalW : g.w, h: isNew && firstFile ? firstFile.originalH : g.h };
+                    }
+                    return g;
+                }));
             };
 
             // Update group properties (x, y, w, h, name)
@@ -684,13 +706,35 @@
                                             <div key={f}><label className="text-[10px] text-center block text-slate-400 uppercase">{f}</label><input type="number" step="0.001" value={g[f]} onChange={e => updateGroup(g.id, f, e.target.value)} className="w-full border rounded text-center text-xs py-1 font-mono" /></div>
                                         ))}
                                     </div>
+
+                                    {/* Upload area with Drag & Drop */}
                                     <div className="flex gap-2">
-                                        <label className="flex-1 flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-300 rounded-xl hover:border-indigo-500 cursor-pointer text-slate-500 hover:text-indigo-600 transition-all bg-white">
-                                            <Icon name="upload-cloud" size={16} /> <span className="text-xs">{t('upload')}</span>
+                                        <label
+                                            className={`flex-1 flex items-center justify-center gap-2 py-3 border-2 border-dashed rounded-xl cursor-pointer text-slate-500 transition-all bg-white
+                                                ${dragOverGroupId === g.id ? 'border-indigo-500 text-indigo-600 bg-indigo-50' : 'border-slate-300 hover:border-indigo-500 hover:text-indigo-600'}
+                                            `}
+                                            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverGroupId(g.id); }}
+                                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverGroupId(g.id); }}
+                                            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverGroupId(null); }}
+                                            onDrop={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setDragOverGroupId(null);
+                                                handleDropFiles(g.id, e.dataTransfer.files);
+                                            }}
+                                            title={t('dropHere')}
+                                        >
+                                            <Icon name="upload-cloud" size={16} />
+                                            <span className="text-xs">{t('upload')}</span>
                                             <input type="file" multiple accept=".svg" className="hidden" onChange={e => handleUpload(g.id, e)} />
                                         </label>
                                         <button onClick={() => { if(confirm(t('clearFilesConfirm'))) updateGroup(g.id, 'files', []); }} className="w-12 flex items-center justify-center border-2 border-red-100 text-red-400 rounded-xl hover:bg-red-50 hover:border-red-300 transition-all" title={t('clearFilesConfirm')}><Icon name="trash-2" size={16} /></button>
                                     </div>
+
+                                    {dragOverGroupId === g.id && (
+                                        <div className="mt-2 text-[10px] text-indigo-600 text-center">{t('dropHere')}</div>
+                                    )}
+
                                     {g.files.length === 1 && (
                                         <button onClick={() => setEditingFile({ groupId: g.id, fileIndex: 0, fileData: g.files[0] })} className="w-full mt-2 py-2 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-200 transition-colors flex items-center justify-center gap-2 shadow-sm">
                                             <Icon name="edit-3" size={14} /> {t('editSvg')}
