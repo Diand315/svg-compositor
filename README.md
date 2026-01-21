@@ -1,5 +1,3 @@
-# SVG Compositor v1.0
-
 A powerful, lightweight, browser-based tool for composing, editing, and batch-exporting SVG elements. Built as a **Single File Application** using React—no installation or build steps required.
 
 ![Project Screenshot](screenshots/demo.png)
