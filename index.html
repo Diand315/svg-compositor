@@ -5,7 +5,7 @@
     <meta name="author" content="Rock_4762">
     <meta name="description" content="A powerful SVG composition tool built with React.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SVG Compositor v1.1 (Cleaned)</title>
+    <title>SVG Compositor v1.2</title>
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -14,10 +14,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
-        /* Base styles */
         body { background-color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
-        
-        /* Canvas Area: Checkerboard pattern for transparent background visualization */
         .canvas-area { 
             background-color: #e2e8f0;
             background-image: 
@@ -30,30 +27,22 @@
             overflow: hidden;
             cursor: default;
         }
-        /* Change cursor when panning (dragging) the canvas */
         .canvas-area:active { cursor: grabbing; }
-        
-        /* Custom Scrollbar for the sidebar */
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         
-        /* SVG Editor Selection Styles */
         .svg-editor-selected {
-            outline: 2px dashed #ef4444 !important; /* Red dashed line for selected items */
+            outline: 2px dashed #ef4444 !important;
             opacity: 0.8;
             cursor: pointer;
         }
         .svg-editor-hover:hover {
-            outline: 1px solid #6366f1; /* Blue solid line for hover effect */
+            outline: 1px solid #6366f1;
             cursor: pointer;
         }
-        
-        /* Background pattern for the editor modal */
         .bg-checkerboard {
             background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTEwIDBoMTB2MTBIMTB6TTAgMTBoMTB2MTBIMHoiIGZpbGw9IiNlMmU4ZjAiIGZpbGwtb3BhY2l0eT0iMC41Ii8+PC9zdmc+');
         }
-        
-        /* Language Dropdown Style */
         .lang-select {
             background-color: #334155;
             color: white;
@@ -67,6 +56,13 @@
         .lang-select:hover {
             background-color: #475569;
         }
+        .selection-box {
+            position: absolute;
+            background-color: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.8);
+            pointer-events: none;
+            z-index: 9999;
+        }
     </style>
 </head>
 <body>
@@ -75,16 +71,14 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useCallback } = React;
 
-        // --- Translations Dictionary ---
-        // Stores all UI text for multi-language support (TW, CN, EN)
         const TRANSLATIONS = {
             'zh-TW': {
-                title: "SVG 合成器 v1.1",
+                title: "SVG 合成器 v1.2",
                 subtitle: "中鍵: 移動畫布 | 滾輪: 縮放",
                 smartTrim: "Smart Trim (自動裁切空白)",
                 previewWhiteBg: "預覽顯示白底 (下載時自動透明)",
                 canvasSize: "畫布尺寸",
-                upload: "上傳 / 追加",
+                upload: "上傳 / 追加\n拖曳檔案至此",
                 deleteLayer: "刪除圖層",
                 clearFilesConfirm: "確定清空此組所有檔案?",
                 deleteLayerConfirm: "確定刪除此圖層組?",
@@ -98,21 +92,21 @@
                 ungroup: "取消群組",
                 extract: "提取至新圖層",
                 editorTitle: "編輯 SVG: {name}",
-                editorSubtitle: "提示: Shift+點擊可多選, Ctrl+G是群組, Ctrl+Shift+G是取消群組",
+                editorSubtitle: "提示: 左鍵拖曳框選(穿透群組), Shift+點擊多選, 中鍵平移",
                 previewWhite: "預覽白底",
                 cancel: "取消",
                 save: "儲存變更",
                 extractAlert: "請單選提取。",
                 noFileAlert: "無檔案！",
-                dropHere: "拖曳檔案到這裡上傳"
+                dropHere: "放開以開始上傳"
             },
             'zh-CN': {
-                title: "SVG 合成器 v1.1",
+                title: "SVG 合成器 v1.2",
                 subtitle: "中键: 移动画布 | 滚轮: 缩放",
                 smartTrim: "Smart Trim (自动裁切空白)",
                 previewWhiteBg: "预览显示白底 (下载时自动透明)",
                 canvasSize: "画布尺寸",
-                upload: "上传 / 追加",
+                upload: "上传 / 追加\n拖拽文件至此",
                 deleteLayer: "删除图层",
                 clearFilesConfirm: "确定清空此组所有文件?",
                 deleteLayerConfirm: "确定删除此图层组?",
@@ -123,24 +117,24 @@
                 reset: "居中",
                 delete: "删除",
                 group: "群组",
-                ungroup: "取消群組",
+                ungroup: "取消群组",
                 extract: "提取至新图层",
                 editorTitle: "编辑 SVG: {name}",
-                editorSubtitle: "提示: Shift+点击可多选, Ctrl+G是群组, Ctrl+Shift+G是取消群组",
+                editorSubtitle: "提示: 左键拖曳框选(穿透群组), Shift+点击多选, 中键平移",
                 previewWhite: "预览白底",
                 cancel: "取消",
                 save: "保存更改",
                 extractAlert: "请单选提取。",
                 noFileAlert: "无文件！",
-                dropHere: "拖拽文件到此处上传"
+                dropHere: "放开以开始上传"
             },
             'en-US': {
-                title: "SVG Compositor v1.1",
+                title: "SVG Compositor v1.2",
                 subtitle: "Middle Click: Pan | Wheel: Zoom",
                 smartTrim: "Smart Trim (Auto-crop whitespace)",
                 previewWhiteBg: "Preview White BG (Transparent on Download)",
                 canvasSize: "CANVAS SIZE",
-                upload: "Upload / Append",
+                upload: "Upload / Append\nDrag & Drop Here",
                 deleteLayer: "Delete Layer",
                 clearFilesConfirm: "Clear all files in this group?",
                 deleteLayerConfirm: "Delete this layer group?",
@@ -154,130 +148,178 @@
                 ungroup: "Ungroup",
                 extract: "Extract to New Layer",
                 editorTitle: "Edit SVG: {name}",
-                editorSubtitle: "Tip: Shift+Click to select multiple, Ctrl+G to group, Ctrl+Shift+G to ungroup",
+                editorSubtitle: "Tip: Box Select (Deep), Shift+Click Multi-select, Mid-Click Pan",
                 previewWhite: "White BG",
                 cancel: "Cancel",
                 save: "Save Changes",
                 extractAlert: "Please select a single item to extract.",
                 noFileAlert: "No files!",
-                dropHere: "Drop files here to upload"
+                dropHere: "Release to Upload"
             }
         };
 
-        // --- Helper Component: Icon ---
-        // Renders Lucide icons dynamically
         const Icon = ({ name, size = 16, className = "" }) => {
             useEffect(() => { lucide.createIcons(); }, [name]);
             return <i data-lucide={name} style={{width: size, height: size}} className={className}></i>;
         };
 
-        // --- Component: SVG Editor Modal ---
-        // The modal window for editing individual SVG files (grouping, ungrouping, extracting parts)
+        // --- Modified UploadZone to support multiline text ---
+        const UploadZone = ({ groupId, onUpload, t }) => {
+            const [isDragging, setIsDragging] = useState(false);
+            const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+            const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
+            const handleDrop = (e) => { e.preventDefault(); setIsDragging(false); if (e.dataTransfer.files.length) onUpload(groupId, e.dataTransfer.files); };
+            const handleFileChange = (e) => { if (e.target.files.length) onUpload(groupId, e.target.files); };
+            
+            return (
+                <label className={`flex-1 flex items-center justify-center gap-2 py-3 border-2 border-dashed rounded-xl cursor-pointer transition-all ${isDragging ? 'border-indigo-500 bg-indigo-50 text-indigo-600 scale-[1.02]' : 'border-slate-300 hover:border-indigo-500 text-slate-500 hover:text-indigo-600 bg-white'}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                    <Icon name={isDragging ? "arrow-down-circle" : "upload-cloud"} size={16} />
+                    {/* Added whitespace-pre-line and text-center to support line breaks */}
+                    <span className="text-xs font-bold whitespace-pre-line text-center leading-tight">
+                        {isDragging ? t('dropHere') : t('upload')}
+                    </span>
+                    <input type="file" multiple accept=".svg" className="hidden" onChange={handleFileChange} />
+                </label>
+            );
+        };
+
         const SvgEditorModal = ({ file, parentGroupInfo, onSave, onPromote, onClose, t }) => {
             const containerRef = useRef(null);
-            const [selectionCount, setSelectionCount] = useState(0); // Number of selected items
+            const editorWrapperRef = useRef(null);
+            const [selectionCount, setSelectionCount] = useState(0);
             
-            // Editor View State (Zoom & Pan)
             const [scale, setScale] = useState(1);
             const [pan, setPan] = useState({ x: 0, y: 0 });
             const [isPanning, setIsPanning] = useState(false);
             const [startPan, setStartPan] = useState({ x: 0, y: 0 });
-            const [editorWhiteBg, setEditorWhiteBg] = useState(true); // Toggle white background
+            const [editorWhiteBg, setEditorWhiteBg] = useState(true);
 
-            // Initialize editor content
+            // --- Box Selection State ---
+            const [isBoxSelecting, setIsBoxSelecting] = useState(false);
+            const [selectionBox, setSelectionBox] = useState({ x: 0, y: 0, w: 0, h: 0 });
+            const [boxStart, setBoxStart] = useState({ x: 0, y: 0 });
+
             useEffect(() => {
                 if (containerRef.current) {
-                    // Wrap content in a full-size SVG for editing
-                    const fullSvgContent = `
-                        <svg xmlns="http://www.w3.org/2000/svg" 
-                             width="100%" 
-                             height="100%" 
-                             viewBox="${file.viewBox}" 
-                             style="overflow: visible;">
-                            ${file.content}
-                        </svg>
-                    `;
+                    const fullSvgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="${file.viewBox}" style="overflow: visible;">${file.content}</svg>`;
                     containerRef.current.innerHTML = fullSvgContent;
-                    attachEvents(); // Bind click events to SVG elements
+                    attachEvents();
                 }
             }, []);
 
-            // Keyboard Shortcuts Handler
             useEffect(() => {
                 const handleKeyDown = (e) => {
-                    // Ignore shortcuts if typing in input fields
                     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
                     if (e.ctrlKey || e.metaKey) {
-                        if (e.key === 'g' || e.key === 'G') {
-                            e.preventDefault(); e.shiftKey ? handleUngroup() : handleGroup();
-                        } else if (e.key === 'a' || e.key === 'A') {
-                            e.preventDefault(); handleSelectAll();
-                        }
+                        if (e.key === 'g' || e.key === 'G') { e.preventDefault(); e.shiftKey ? handleUngroup() : handleGroup(); }
+                        else if (e.key === 'a' || e.key === 'A') { e.preventDefault(); handleSelectAll(); }
                     }
                 };
                 window.addEventListener('keydown', handleKeyDown);
                 return () => window.removeEventListener('keydown', handleKeyDown);
             }, [selectionCount]);
 
-            // --- View Controls (Zoom/Pan) ---
             const handleWheel = (e) => {
                 e.stopPropagation();
                 const delta = e.deltaY > 0 ? -0.1 : 0.1;
                 setScale(prev => Math.min(Math.max(0.1, prev + delta), 5));
             };
+
+            const getMousePos = (e) => {
+                if (!editorWrapperRef.current) return { x: 0, y: 0 };
+                const rect = editorWrapperRef.current.getBoundingClientRect();
+                return {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+            };
+
             const handleMouseDown = (e) => {
-                if (e.button === 1) { // Middle mouse button
+                if (e.button === 1) {
                     e.preventDefault(); e.stopPropagation();
                     setIsPanning(true); setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+                    return;
+                }
+                if (e.button === 0) {
+                    const targetEl = e.target.closest('.svg-editor-hover');
+                    if (!targetEl || e.target === containerRef.current.querySelector('svg')) {
+                         if (!e.shiftKey) clearSelection();
+                         setIsBoxSelecting(true);
+                         const pos = getMousePos(e);
+                         setBoxStart(pos);
+                         setSelectionBox({ x: pos.x, y: pos.y, w: 0, h: 0 });
+                    }
                 }
             };
+
             const handleMouseMove = (e) => {
                 if (isPanning) {
                     e.preventDefault(); e.stopPropagation();
                     setPan({ x: e.clientX - startPan.x, y: e.clientY - startPan.y });
+                    return;
+                }
+                if (isBoxSelecting) {
+                    const pos = getMousePos(e);
+                    const newX = Math.min(pos.x, boxStart.x);
+                    const newY = Math.min(pos.y, boxStart.y);
+                    const newW = Math.abs(pos.x - boxStart.x);
+                    const newH = Math.abs(pos.y - boxStart.y);
+                    setSelectionBox({ x: newX, y: newY, w: newW, h: newH });
                 }
             };
-            const handleMouseUp = () => setIsPanning(false);
 
-            // --- SVG Interaction Logic ---
-            // Attaches click listeners to SVG elements to handle selection
+            const handleMouseUp = (e) => {
+                if (isPanning) { setIsPanning(false); return; }
+                if (isBoxSelecting) {
+                    setIsBoxSelecting(false);
+                    applyBoxSelection(selectionBox, e.shiftKey);
+                    setSelectionBox({ x: 0, y: 0, w: 0, h: 0 });
+                }
+            };
+
+            const applyBoxSelection = (box, appendSelection) => {
+                if (!containerRef.current) return;
+                if (box.w < 5 && box.h < 5) return;
+                const allElements = containerRef.current.querySelectorAll('.svg-editor-hover');
+                const wrapperRect = editorWrapperRef.current.getBoundingClientRect();
+                allElements.forEach(el => {
+                    const tagName = el.tagName.toLowerCase();
+                    const isGroup = tagName === 'g' || tagName === 'svg' || tagName === 'switch';
+                    if (isGroup) return; 
+                    const elRect = el.getBoundingClientRect();
+                    const elRel = { x: elRect.left - wrapperRect.left, y: elRect.top - wrapperRect.top, w: elRect.width, h: elRect.height };
+                    const isOverlapping = (box.x < elRel.x + elRel.w && box.x + box.w > elRel.x && box.y < elRel.y + elRel.h && box.y + box.h > elRel.y);
+                    if (isOverlapping) { el.classList.add('svg-editor-selected'); }
+                });
+                updateSelectionCount();
+            };
+
             const attachEvents = () => {
                 const svgRoot = containerRef.current.querySelector('svg');
                 if (!svgRoot) return;
-                
-                // Recursively add hover class to all elements
-                const addHoverClass = (el) => {
-                    if (el.nodeType === 1 && el !== svgRoot) {
-                        el.classList.add('svg-editor-hover');
-                        Array.from(el.children).forEach(addHoverClass);
+                const processNode = (el) => {
+                    const tagName = el.tagName.toLowerCase();
+                    const isContainer = ['g', 'svg', 'switch', 'defs', 'symbol'].includes(tagName);
+                    if (el.nodeType === 1) { 
+                        if (!isContainer) { el.classList.add('svg-editor-hover'); }
+                        Array.from(el.children).forEach(processNode);
                     }
                 };
-                Array.from(svgRoot.children).forEach(addHoverClass);
-
-                // Handle click on SVG elements
-                svgRoot.onclick = (e) => {
-                    if (isPanning) return; // Don't select while panning
-                    e.preventDefault(); e.stopPropagation();
-                    
-                    // Click on empty space clears selection
-                    if (e.target === svgRoot) { clearSelection(); return; }
-                    
+                processNode(svgRoot);
+                svgRoot.onmousedown = (e) => {
+                    if (e.button !== 0) return;
                     const target = e.target.closest('.svg-editor-hover');
                     if (target) {
+                        e.stopPropagation();
                         const isSelected = target.classList.contains('svg-editor-selected');
-                        if (!e.shiftKey) clearSelection(); // Clear others unless Shift is held
-                        
-                        // Toggle selection
+                        if (!e.shiftKey) clearSelection();
                         if (e.shiftKey && isSelected) target.classList.remove('svg-editor-selected');
                         else target.classList.add('svg-editor-selected');
-                        
                         updateSelectionCount();
                     }
                 };
             };
 
-            // Selection Helpers
             const clearSelection = () => {
                 const selected = containerRef.current.querySelectorAll('.svg-editor-selected');
                 selected.forEach(el => el.classList.remove('svg-editor-selected'));
@@ -294,74 +336,67 @@
                 setSelectionCount(containerRef.current.querySelectorAll('.svg-editor-selected').length);
             };
 
-            // --- Editing Actions ---
-            
-            // Delete selected elements
             const handleDelete = () => {
                 containerRef.current.querySelectorAll('.svg-editor-selected').forEach(el => el.remove());
                 clearSelection();
             };
 
-            // Group selected elements into a <g> tag
             const handleGroup = () => {
                 const selected = Array.from(containerRef.current.querySelectorAll('.svg-editor-selected'));
                 if (selected.length < 1) return;
-                const parent = selected[0].parentNode;
+                const firstParent = selected[0].parentNode;
                 const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                g.classList.add('svg-editor-hover');
-                parent.insertBefore(g, selected[0]);
+                firstParent.insertBefore(g, selected[0]);
                 selected.forEach(el => { el.classList.remove('svg-editor-selected'); g.appendChild(el); });
-                g.classList.add('svg-editor-selected');
+                Array.from(g.children).forEach(child => child.classList.add('svg-editor-selected'));
                 updateSelectionCount();
             };
 
-            // Ungroup selected <g> tags
             const handleUngroup = () => {
+                const selected = containerRef.current.querySelectorAll('.svg-editor-selected');
                 let changed = false;
-                containerRef.current.querySelectorAll('.svg-editor-selected').forEach(el => {
-                    if (el.tagName.toLowerCase() === 'g') {
-                        const parent = el.parentNode;
-                        while (el.firstChild) parent.insertBefore(el.firstChild, el);
-                        el.remove();
-                        changed = true;
+                const parentsToUngroup = new Set();
+                selected.forEach(el => { if (el.parentNode && el.parentNode.tagName.toLowerCase() === 'g') { parentsToUngroup.add(el.parentNode); } });
+                parentsToUngroup.forEach(parentGroup => {
+                    const grandParent = parentGroup.parentNode;
+                    while (parentGroup.firstChild) {
+                        const child = parentGroup.firstChild;
+                        grandParent.insertBefore(child, parentGroup);
                     }
+                    parentGroup.remove();
+                    changed = true;
                 });
-                if (changed) { attachEvents(); clearSelection(); }
+                if (changed) { updateSelectionCount(); }
             };
 
-            // Extract selected element to a new main layer ("Promote")
             const handleExtract = () => {
                 const selected = Array.from(containerRef.current.querySelectorAll('.svg-editor-selected'));
-                if (selected.length !== 1) return alert(t('extractAlert')); // Only single selection allowed
-                
-                const element = selected[0];
-                const bbox = element.getBBox();
-                const serializer = new XMLSerializer();
-                const content = serializer.serializeToString(element);
-                
-                // Calculate position relative to the main canvas
-                const vb = file.viewBox.split(' ').map(parseFloat);
-                const scaleX = parentGroupInfo.w / vb[2];
-                const scaleY = parentGroupInfo.h / vb[3];
-                const newX = parentGroupInfo.x + (bbox.x - vb[0]) * scaleX;
-                const newY = parentGroupInfo.y + (bbox.y - vb[1]) * scaleY;
-                
-                onPromote({
-                    content: content,
-                    x: newX, y: newY, w: bbox.width * scaleX, h: bbox.height * scaleY,
-                    viewBox: `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`
+                if (selected.length === 0) return alert(t('extractAlert'));
+                let contentToExport = "";
+                let bbox = { x: Infinity, y: Infinity, right: -Infinity, bottom: -Infinity };
+                selected.forEach(el => {
+                    try {
+                        const b = el.getBBox();
+                        bbox.x = Math.min(bbox.x, b.x); bbox.y = Math.min(bbox.y, b.y);
+                        bbox.right = Math.max(bbox.right, b.x + b.width); bbox.bottom = Math.max(bbox.bottom, b.y + b.height);
+                    } catch(e) {}
                 });
-                
-                element.remove(); // Remove from current SVG
+                const width = bbox.right - bbox.x; const height = bbox.bottom - bbox.y;
+                if (!isFinite(width)) return;
+                const serializer = new XMLSerializer();
+                if (selected.length === 1) { contentToExport = serializer.serializeToString(selected[0]); } 
+                else { contentToExport = "<g>" + selected.map(el => serializer.serializeToString(el)).join('') + "</g>"; }
+                const vb = file.viewBox.split(' ').map(parseFloat);
+                const scaleX = parentGroupInfo.w / vb[2]; const scaleY = parentGroupInfo.h / vb[3];
+                const newX = parentGroupInfo.x + (bbox.x - vb[0]) * scaleX; const newY = parentGroupInfo.y + (bbox.y - vb[1]) * scaleY;
+                onPromote({ content: contentToExport, x: newX, y: newY, w: width * scaleX, h: height * scaleY, viewBox: `${bbox.x} ${bbox.y} ${width} ${height}` });
+                selected.forEach(el => el.remove());
                 clearSelection();
             };
 
-            // Save changes and close modal
             const handleSaveInternal = () => {
                 const svg = containerRef.current.querySelector('svg');
                 if (!svg) return;
-                
-                // Clean up helper classes before saving
                 const cleanSvg = svg.cloneNode(true);
                 cleanSvg.querySelectorAll('*').forEach(el => {
                     el.classList.remove('svg-editor-hover', 'svg-editor-selected');
@@ -370,31 +405,23 @@
                 onSave(cleanSvg.innerHTML);
             };
 
-            // --- Modal UI Render ---
             return (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-10" onWheel={(e)=>e.stopPropagation()}>
                     <div className="bg-white rounded-2xl w-full h-full max-w-7xl flex flex-col shadow-2xl overflow-hidden relative">
-                        {/* Header */}
                         <div className="bg-slate-900 text-white p-4 flex justify-between items-center select-none">
                             <div className="flex flex-col">
-                                <h2 className="font-bold flex items-center gap-2">
-                                    <Icon name="edit-3" /> {t('editorTitle').replace('{name}', file.name)}
-                                </h2>
-                                <div className="text-[10px] text-slate-400 mt-1">
-                                    {t('editorSubtitle')}
-                                </div>
+                                <h2 className="font-bold flex items-center gap-2"><Icon name="edit-3" /> {t('editorTitle').replace('{name}', file.name)}</h2>
+                                <div className="text-[10px] text-slate-400 mt-1">{t('editorSubtitle')}</div>
                             </div>
                             <div className="flex items-center gap-4">
                                 <label className="flex items-center gap-2 text-xs cursor-pointer select-none text-slate-300 hover:text-white transition-colors border-r border-slate-700 pr-4 mr-2">
-                                    <input type="checkbox" checked={editorWhiteBg} onChange={e => setEditorWhiteBg(e.target.checked)} className="rounded text-indigo-500 focus:ring-indigo-500" />
-                                    <span>{t('previewWhite')}</span>
+                                    <input type="checkbox" checked={editorWhiteBg} onChange={e => setEditorWhiteBg(e.target.checked)} className="rounded text-indigo-500 focus:ring-indigo-500" /> <span>{t('previewWhite')}</span>
                                 </label>
                                 <button onClick={onClose} className="px-4 py-2 text-sm hover:text-white text-slate-300">{t('cancel')}</button>
                                 <button onClick={handleSaveInternal} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-sm font-bold shadow-lg shadow-indigo-500/30">{t('save')}</button>
                             </div>
                         </div>
 
-                        {/* Toolbar */}
                         <div className="bg-slate-50 border-b p-2 flex gap-2 justify-center select-none">
                              <div className="flex items-center gap-1 mr-4 border-r pr-4">
                                 <button onClick={() => setScale(s => Math.max(0.1, s-0.1))} className="p-1 hover:bg-slate-200 rounded"><Icon name="minus" size={14}/></button>
@@ -402,24 +429,16 @@
                                 <button onClick={() => setScale(s => Math.min(5, s+0.1))} className="p-1 hover:bg-slate-200 rounded"><Icon name="plus" size={14}/></button>
                                 <button onClick={() => { setScale(1); setPan({x:0,y:0}); }} className="ml-1 text-xs px-2 py-1 bg-white border rounded hover:bg-slate-100">{t('reset')}</button>
                             </div>
-                            
-                            <button onClick={handleDelete} disabled={selectionCount === 0} className="flex items-center gap-2 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded hover:bg-red-50 hover:text-red-600 disabled:opacity-50 transition-colors">
-                                <Icon name="trash-2" size={14} /> {t('delete')} ({selectionCount})
-                            </button>
-                            <button onClick={handleGroup} disabled={selectionCount === 0} className="flex items-center gap-2 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 transition-colors">
-                                <Icon name="box-select" size={14} /> {t('group')}
-                            </button>
-                            <button onClick={handleUngroup} disabled={selectionCount === 0} className="flex items-center gap-2 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 transition-colors">
-                                <Icon name="expand" size={14} /> {t('ungroup')}
-                            </button>
+                            <button onClick={handleDelete} disabled={selectionCount === 0} className="flex items-center gap-2 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded hover:bg-red-50 hover:text-red-600 disabled:opacity-50 transition-colors"><Icon name="trash-2" size={14} /> {t('delete')} ({selectionCount})</button>
+                            <button onClick={handleGroup} disabled={selectionCount === 0} className="flex items-center gap-2 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 transition-colors"><Icon name="box-select" size={14} /> {t('group')}</button>
+                            <button onClick={handleUngroup} disabled={selectionCount === 0} className="flex items-center gap-2 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 transition-colors"><Icon name="expand" size={14} /> {t('ungroup')}</button>
                             <div className="w-px bg-slate-300 mx-2"></div>
-                            <button onClick={handleExtract} disabled={selectionCount !== 1} className="flex items-center gap-2 px-3 py-1.5 text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 rounded hover:bg-emerald-100 disabled:opacity-50 transition-colors">
-                                <Icon name="external-link" size={14} /> {t('extract')}
-                            </button>
+                            <button onClick={handleExtract} disabled={selectionCount === 0} className="flex items-center gap-2 px-3 py-1.5 text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 rounded hover:bg-emerald-100 disabled:opacity-50 transition-colors"><Icon name="external-link" size={14} /> {t('extract')}</button>
                         </div>
 
                         {/* Editor Canvas Area */}
                         <div 
+                            ref={editorWrapperRef}
                             className={`flex-1 overflow-hidden relative cursor-default ${editorWhiteBg ? 'bg-white' : 'bg-checkerboard'}`}
                             onWheel={handleWheel}
                             onMouseDown={handleMouseDown}
@@ -427,8 +446,13 @@
                             onMouseUp={handleMouseUp}
                             onMouseLeave={handleMouseUp}
                         >
-                            <div className="w-full h-full flex items-center justify-center">
-                                <div style={{ width: '80%', height: '80%', transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transition: isPanning ? 'none' : 'transform 0.1s ease-out' }}>
+                            {/* Selection Box */}
+                            {isBoxSelecting && (
+                                <div className="selection-box" style={{ left: selectionBox.x, top: selectionBox.y, width: selectionBox.w, height: selectionBox.h }}></div>
+                            )}
+
+                            <div className="w-full h-full flex items-center justify-center pointer-events-none">
+                                <div style={{ width: '80%', height: '80%', transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transition: isPanning ? 'none' : 'transform 0.1s ease-out', pointerEvents: 'auto' }}>
                                     <div ref={containerRef} className="w-full h-full border border-slate-300 shadow-2xl bg-transparent"></div>
                                 </div>
                             </div>
@@ -439,125 +463,71 @@
             );
         };
 
-        // --- Component: Main Application ---
         const App = () => {
-            // App State
-            const [lang, setLang] = useState('zh-TW'); // Current Language
-            const [canvas, setCanvas] = useState({ w: 1080, h: 1920 }); // Canvas Dimensions
-            const [groups, setGroups] = useState([
-                { id: 1, name: "Main", x: 140, y: 560, w: 200, h: 200, files: [], selectedIdx: 0 }
-            ]);
-            
-            const [editingFile, setEditingFile] = useState(null); // File currently being edited in modal
-            
-            // Main Canvas View State
+            const [lang, setLang] = useState('zh-TW');
+            const [canvas, setCanvas] = useState({ w: 1080, h: 1920 });
+            const [groups, setGroups] = useState([{ id: 1, name: "Main", x: 140, y: 560, w: 200, h: 200, files: [], selectedIdx: 0 }]);
+            const [editingFile, setEditingFile] = useState(null);
             const [scale, setScale] = useState(0.35);
             const [pan, setPan] = useState({ x: 0, y: 0 }); 
             const [isPanning, setIsPanning] = useState(false);
             const [startPan, setStartPan] = useState({ x: 0, y: 0 });
-
-            // Settings
-            const [showGrid, setShowGrid] = useState(true); // Toggle layout grid
-            const [autoTrim, setAutoTrim] = useState(true); // Auto-remove whitespace on upload
-            const [previewWhiteBg, setPreviewWhiteBg] = useState(true); // White background vs transparent
-
-            // Drag hover state per group
+            const [showGrid, setShowGrid] = useState(true);
+            const [autoTrim, setAutoTrim] = useState(true);
+            const [previewWhiteBg, setPreviewWhiteBg] = useState(true);
             const [dragOverGroupId, setDragOverGroupId] = useState(null);
 
-            // Helper for translation
             const t = (key) => TRANSLATIONS[lang][key] || key;
 
-            // --- File Processing Logic ---
-            // Parses SVG file content and optional auto-trimming
             const parseSvg = async (file) => {
                 const text = await file.text();
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(text, "image/svg+xml");
                 const svgTag = doc.querySelector("svg");
                 const content = svgTag.innerHTML;
-
                 if (!autoTrim) {
                     let w = parseFloat(svgTag.getAttribute("width"));
                     let h = parseFloat(svgTag.getAttribute("height"));
                     const viewBox = svgTag.getAttribute("viewBox") || `0 0 ${w||100} ${h||100}`;
-                    if (!w) {
-                         const parts = viewBox.split(/[\s,]+/).map(parseFloat);
-                         if (parts.length === 4) { w = parts[2]; h = parts[3]; }
-                    }
+                    if (!w) { const parts = viewBox.split(/[\s,]+/).map(parseFloat); if (parts.length === 4) { w = parts[2]; h = parts[3]; } }
                     return { name: file.name, viewBox, content, originalW: w || 100, originalH: h || 100 };
                 }
-
-                // Auto-trim logic: Render off-screen to measure BBox
                 return new Promise((resolve) => {
-                    const tempDiv = document.createElement("div");
-                    tempDiv.style.position = "absolute";
-                    tempDiv.style.visibility = "hidden";
-                    tempDiv.style.pointerEvents = "none";
-                    document.body.appendChild(tempDiv);
-                    tempDiv.innerHTML = `<svg><g id="measure-target">${content}</g></svg>`;
-                    
+                    const tempDiv = document.createElement("div"); tempDiv.style.position = "absolute"; tempDiv.style.visibility = "hidden"; tempDiv.style.pointerEvents = "none";
+                    document.body.appendChild(tempDiv); tempDiv.innerHTML = `<svg><g id="measure-target">${content}</g></svg>`;
                     requestAnimationFrame(() => {
                         try {
-                            const measureTarget = tempDiv.querySelector("#measure-target");
-                            const bbox = measureTarget.getBBox();
-                            const padding = 0.5;
-                            // Calculate new ViewBox based on bounding box
-                            const newX = parseFloat((bbox.x - padding).toFixed(3));
-                            const newY = parseFloat((bbox.y - padding).toFixed(3));
-                            const newW = parseFloat((bbox.width + padding * 2).toFixed(3));
-                            const newH = parseFloat((bbox.height + padding * 2).toFixed(3));
+                            const measureTarget = tempDiv.querySelector("#measure-target"); const bbox = measureTarget.getBBox(); const padding = 0.5;
+                            const newX = parseFloat((bbox.x - padding).toFixed(3)); const newY = parseFloat((bbox.y - padding).toFixed(3));
+                            const newW = parseFloat((bbox.width + padding * 2).toFixed(3)); const newH = parseFloat((bbox.height + padding * 2).toFixed(3));
                             const newViewBox = `${newX} ${newY} ${newW} ${newH}`;
                             document.body.removeChild(tempDiv);
                             resolve({ name: file.name, viewBox: newViewBox, content: content, originalW: newW, originalH: newH });
                         } catch (e) {
-                            document.body.removeChild(tempDiv);
-                            const w = 100, h = 100;
+                            document.body.removeChild(tempDiv); const w = 100, h = 100;
                             resolve({ name: file.name, viewBox: `0 0 ${w} ${h}`, content, originalW: w, originalH: h });
                         }
                     });
                 });
             };
 
-            // Handle file upload input
-            const handleUpload = async (groupId, e) => {
-                const fileInput = e.target;
-                if (!fileInput.files.length) return;
-                const newFiles = await Promise.all(Array.from(fileInput.files).map(f => parseSvg(f)));
+            const handleUploadFiles = async (groupId, files) => {
+                const newFiles = await Promise.all(Array.from(files).map(f => parseSvg(f)));
                 setGroups(groups.map(g => {
                     if (g.id === groupId) {
                         const firstFile = newFiles[0];
                         const isNew = g.files.length === 0;
                         return { ...g, files: [...g.files, ...newFiles], w: isNew && firstFile ? firstFile.originalW : g.w, h: isNew && firstFile ? firstFile.originalH : g.h };
-                    }
-                    return g;
-                }));
-                fileInput.value = ''; 
-            };
-
-            // Handle drop files
-            const handleDropFiles = async (groupId, fileList) => {
-                if (!fileList || fileList.length === 0) return;
-                const svgFiles = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.svg'));
-                if (svgFiles.length === 0) return;
-                const newFiles = await Promise.all(svgFiles.map(f => parseSvg(f)));
-                setGroups(prev => prev.map(g => {
-                    if (g.id === groupId) {
-                        const firstFile = newFiles[0];
-                        const isNew = g.files.length === 0;
-                        return { ...g, files: [...g.files, ...newFiles], w: isNew && firstFile ? firstFile.originalW : g.w, h: isNew && firstFile ? firstFile.originalH : g.h };
-                    }
-                    return g;
+                    } return g;
                 }));
             };
 
-            // Update group properties (x, y, w, h, name)
             const updateGroup = (id, field, val) => {
                 const numericFields = ['x', 'y', 'w', 'h'];
                 const newVal = numericFields.includes(field) ? (val === '' ? 0 : parseFloat(val)) : val;
                 setGroups(groups.map(g => g.id === id ? { ...g, [field]: newVal } : g));
             };
 
-            // Callback when saving from Editor Modal
             const saveEditedFile = (newContent) => {
                 if (!editingFile) return;
                 setGroups(groups.map(g => {
@@ -565,20 +535,16 @@
                         const newFiles = [...g.files];
                         newFiles[editingFile.fileIndex] = { ...newFiles[editingFile.fileIndex], content: newContent };
                         return { ...g, files: newFiles };
-                    }
-                    return g;
+                    } return g;
                 }));
                 setEditingFile(null);
             };
 
-            // Callback when extracting a part to a new layer
             const handlePromoteGroup = (data) => {
                 const newId = Date.now();
                 setGroups(prev => [...prev, {
-                    id: newId, name: `Extracted ${groups.length}`,
-                    x: parseFloat(data.x.toFixed(3)), y: parseFloat(data.y.toFixed(3)),
-                    w: parseFloat(data.w.toFixed(3)), h: parseFloat(data.h.toFixed(3)),
-                    selectedIdx: 0,
+                    id: newId, name: `Extracted ${groups.length}`, x: parseFloat(data.x.toFixed(3)), y: parseFloat(data.y.toFixed(3)),
+                    w: parseFloat(data.w.toFixed(3)), h: parseFloat(data.h.toFixed(3)), selectedIdx: 0,
                     files: [{ name: "extracted_part.svg", viewBox: data.viewBox, content: data.content, originalW: data.w, originalH: data.h }]
                 }]);
             };
@@ -588,171 +554,87 @@
                 setGroups([...groups, { id: newId, name: `Other ${groups.length}`, x: 0, y: 0, w: canvas.w, h: canvas.h, files: [], selectedIdx: 0 }]);
             };
 
-            // --- Main Canvas View Controls ---
-            const handleWheel = (e) => {
-                const delta = e.deltaY > 0 ? -0.05 : 0.05;
-                setScale(prev => Math.min(Math.max(0.05, prev + delta), 3));
-            };
-            const handleMouseDown = (e) => {
-                if (e.button === 1) {
-                    e.preventDefault(); setIsPanning(true); setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-                }
-            };
-            const handleMouseMove = (e) => {
-                if (!isPanning) return;
-                e.preventDefault(); setPan({ x: e.clientX - startPan.x, y: e.clientY - startPan.y });
-            };
+            const handleWheel = (e) => { const delta = e.deltaY > 0 ? -0.05 : 0.05; setScale(prev => Math.min(Math.max(0.05, prev + delta), 3)); };
+            const handleMouseDown = (e) => { if (e.button === 1) { e.preventDefault(); setIsPanning(true); setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y }); } };
+            const handleMouseMove = (e) => { if (!isPanning) return; e.preventDefault(); setPan({ x: e.clientX - startPan.x, y: e.clientY - startPan.y }); };
             const handleMouseUp = () => setIsPanning(false);
 
-            // Generates the final SVG string for preview or download
             const generateSvgString = (iterationIdx, isPreview = false, isForDownload = false) => {
                 let layers = "";
                 groups.forEach((g, gIdx) => {
                     const fileIdx = (gIdx === 0 && !isPreview) ? iterationIdx : g.selectedIdx;
                     const file = g.files[fileIdx];
-                    if (file) {
-                        layers += `<g transform="translate(${g.x}, ${g.y})"><svg width="${g.w}" height="${g.h}" viewBox="${file.viewBox}" preserveAspectRatio="none">${file.content}</svg></g>`;
-                    }
-                    // Show debug grid/border in preview mode
-                    if (isPreview && showGrid) {
-                        layers += `<rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" fill="none" stroke="${gIdx===0?'#6366f1':'#f43f5e'}" stroke-width="2" stroke-dasharray="5,5" /><text x="${g.x}" y="${g.y-10}" fill="${gIdx===0?'#6366f1':'#f43f5e'}" font-size="20" font-weight="bold">${g.name}</text>`;
-                    }
+                    if (file) layers += `<g transform="translate(${g.x}, ${g.y})"><svg width="${g.w}" height="${g.h}" viewBox="${file.viewBox}" preserveAspectRatio="none">${file.content}</svg></g>`;
+                    if (isPreview && showGrid) layers += `<rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" fill="none" stroke="${gIdx===0?'#6366f1':'#f43f5e'}" stroke-width="2" stroke-dasharray="5,5" /><text x="${g.x}" y="${g.y-10}" fill="${gIdx===0?'#6366f1':'#f43f5e'}" font-size="20" font-weight="bold">${g.name}</text>`;
                 });
                 const bgLayer = (isPreview && previewWhiteBg && !isForDownload) ? '<rect width="100%" height="100%" fill="white" />' : '';
                 return `<svg width="${canvas.w}" height="${canvas.h}" viewBox="0 0 ${canvas.w} ${canvas.h}" xmlns="http://www.w3.org/2000/svg">${bgLayer}${layers}</svg>`;
             };
 
-            // Download Logic
             const downloadSingle = (index) => {
                 const content = generateSvgString(index, false, true); 
                 const blob = new Blob([content], { type: 'image/svg+xml' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                const mainFile = groups[0].files[index];
-                let fileName = mainFile ? mainFile.name : `export_${index + 1}.svg`;
+                let fileName = groups[0].files[index] ? groups[0].files[index].name : `export_${index + 1}.svg`;
                 if (!fileName.toLowerCase().endsWith('.svg')) fileName += '.svg';
                 a.href = url; a.download = fileName; a.click();
             };
             const batchDownload = () => {
-                const mainGroup = groups[0];
-                if (mainGroup.files.length === 0) return alert(t('noFileAlert'));
-                mainGroup.files.forEach((_, index) => setTimeout(() => downloadSingle(index), index * 200));
+                if (groups[0].files.length === 0) return alert(t('noFileAlert'));
+                groups[0].files.forEach((_, index) => setTimeout(() => downloadSingle(index), index * 200));
             };
 
-            // --- Render UI ---
             return (
                 <div className="flex h-screen w-full overflow-hidden">
-                    {/* SVG Editor Modal */}
-                    {editingFile && (
-                        <SvgEditorModal 
-                            file={editingFile.fileData} 
-                            parentGroupInfo={groups.find(g => g.id === editingFile.groupId)}
-                            onSave={saveEditedFile} 
-                            onPromote={handlePromoteGroup}
-                            onClose={() => setEditingFile(null)} 
-                            t={t}
-                        />
-                    )}
-
-                    {/* Sidebar Area */}
+                    {editingFile && <SvgEditorModal file={editingFile.fileData} parentGroupInfo={groups.find(g => g.id === editingFile.groupId)} onSave={saveEditedFile} onPromote={handlePromoteGroup} onClose={() => setEditingFile(null)} t={t} />}
                     <div className="w-96 bg-white border-r flex flex-col shadow-2xl z-20">
-                        {/* Header & Settings */}
                         <div className="p-6 bg-slate-900 text-white space-y-3">
                             <div className="flex justify-between items-start">
-                                <div>
-                                    <h1 className="font-bold text-lg">{t('title')}</h1>
-                                    <div className="text-[10px] text-slate-400 mt-1">{t('subtitle')}</div>
-                                </div>
-                                {/* Language Dropdown */}
-                                <select 
-                                    className="lang-select"
-                                    value={lang}
-                                    onChange={(e) => setLang(e.target.value)}
-                                >
-                                    <option value="zh-TW">繁(TW)</option>
-                                    <option value="zh-CN">簡(CN)</option>
-                                    <option value="en-US">英(EN)</option>
-                                </select>
+                                <div><h1 className="font-bold text-lg">{t('title')}</h1><div className="text-[10px] text-slate-400 mt-1">{t('subtitle')}</div></div>
+                                <select className="lang-select" value={lang} onChange={(e) => setLang(e.target.value)}><option value="zh-TW">繁(TW)</option><option value="zh-CN">簡(CN)</option><option value="en-US">英(EN)</option></select>
                             </div>
-                            
                             <div className="flex flex-col gap-2 pt-2">
-                                <label className="flex items-center gap-2 text-xs cursor-pointer select-none hover:text-indigo-300 transition-colors">
-                                    <input type="checkbox" checked={autoTrim} onChange={e => setAutoTrim(e.target.checked)} className="rounded text-indigo-500 focus:ring-indigo-500" /> <span>{t('smartTrim')}</span>
-                                </label>
-                                <label className="flex items-center gap-2 text-xs cursor-pointer select-none hover:text-indigo-300 transition-colors">
-                                    <input type="checkbox" checked={previewWhiteBg} onChange={e => setPreviewWhiteBg(e.target.checked)} className="rounded text-indigo-500 focus:ring-indigo-500" /> <span>{t('previewWhiteBg')}</span>
-                                </label>
+                                <label className="flex items-center gap-2 text-xs cursor-pointer hover:text-indigo-300"><input type="checkbox" checked={autoTrim} onChange={e => setAutoTrim(e.target.checked)} className="rounded text-indigo-500" /> <span>{t('smartTrim')}</span></label>
+                                <label className="flex items-center gap-2 text-xs cursor-pointer hover:text-indigo-300"><input type="checkbox" checked={previewWhiteBg} onChange={e => setPreviewWhiteBg(e.target.checked)} className="rounded text-indigo-500" /> <span>{t('previewWhiteBg')}</span></label>
                             </div>
                         </div>
-
-                        {/* Layers List */}
                         <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
                              <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border">
-                                <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('canvasSize')}</div>
+                                <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase">{t('canvasSize')}</div>
                                 <input type="number" value={canvas.w} onChange={e => setCanvas({...canvas, w: parseInt(e.target.value)})} className="border rounded px-2 py-1 text-sm" placeholder="W" />
                                 <input type="number" value={canvas.h} onChange={e => setCanvas({...canvas, h: parseInt(e.target.value)})} className="border rounded px-2 py-1 text-sm" placeholder="H" />
                             </div>
-
                             {groups.map((g, idx) => (
                                 <div key={g.id} className={`border-2 rounded-2xl p-4 transition-all ${idx === 0 ? 'border-indigo-100 bg-indigo-50/30' : 'border-slate-100'}`}>
                                     <div className="flex justify-between items-center mb-4">
-                                        <input value={g.name} onChange={e => updateGroup(g.id, 'name', e.target.value)} className="font-bold bg-transparent w-40 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 px-1" title="Click to rename" />
-                                        {idx > 0 && (
-                                            <button className="text-xs text-red-400 hover:text-red-600 bg-red-50 px-2 py-1 rounded" onClick={() => { if(confirm(t('deleteLayerConfirm'))) setGroups(groups.filter(group => group.id !== g.id)); }}>{t('deleteLayer')}</button>
-                                        )}
+                                        <input value={g.name} onChange={e => updateGroup(g.id, 'name', e.target.value)} className="font-bold bg-transparent w-40 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 px-1" />
+                                        {idx > 0 && <button className="text-xs text-red-400 hover:text-red-600 bg-red-50 px-2 py-1 rounded" onClick={() => { if(confirm(t('deleteLayerConfirm'))) setGroups(groups.filter(group => group.id !== g.id)); }}>{t('deleteLayer')}</button>}
                                     </div>
                                     <div className="grid grid-cols-4 gap-2 mb-4">
                                         {['x', 'y', 'w', 'h'].map(f => (
                                             <div key={f}><label className="text-[10px] text-center block text-slate-400 uppercase">{f}</label><input type="number" step="0.001" value={g[f]} onChange={e => updateGroup(g.id, f, e.target.value)} className="w-full border rounded text-center text-xs py-1 font-mono" /></div>
                                         ))}
                                     </div>
-
-                                    {/* Upload area with Drag & Drop */}
                                     <div className="flex gap-2">
-                                        <label
-                                            className={`flex-1 flex items-center justify-center gap-2 py-3 border-2 border-dashed rounded-xl cursor-pointer text-slate-500 transition-all bg-white
-                                                ${dragOverGroupId === g.id ? 'border-indigo-500 text-indigo-600 bg-indigo-50' : 'border-slate-300 hover:border-indigo-500 hover:text-indigo-600'}
-                                            `}
-                                            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverGroupId(g.id); }}
-                                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverGroupId(g.id); }}
-                                            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverGroupId(null); }}
-                                            onDrop={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                setDragOverGroupId(null);
-                                                handleDropFiles(g.id, e.dataTransfer.files);
-                                            }}
-                                            title={t('dropHere')}
-                                        >
-                                            <Icon name="upload-cloud" size={16} />
-                                            <span className="text-xs">{t('upload')}</span>
-                                            <input type="file" multiple accept=".svg" className="hidden" onChange={e => handleUpload(g.id, e)} />
-                                        </label>
-                                        <button onClick={() => { if(confirm(t('clearFilesConfirm'))) updateGroup(g.id, 'files', []); }} className="w-12 flex items-center justify-center border-2 border-red-100 text-red-400 rounded-xl hover:bg-red-50 hover:border-red-300 transition-all" title={t('clearFilesConfirm')}><Icon name="trash-2" size={16} /></button>
+                                        <UploadZone groupId={g.id} onUpload={handleUploadFiles} t={t} />
+                                        <button onClick={() => { if(confirm(t('clearFilesConfirm'))) updateGroup(g.id, 'files', []); }} className="w-12 flex items-center justify-center border-2 border-red-100 text-red-400 rounded-xl hover:bg-red-50 hover:border-red-300 transition-all"><Icon name="trash-2" size={16} /></button>
                                     </div>
-
-                                    {dragOverGroupId === g.id && (
-                                        <div className="mt-2 text-[10px] text-indigo-600 text-center">{t('dropHere')}</div>
-                                    )}
-
-                                    {g.files.length === 1 && (
-                                        <button onClick={() => setEditingFile({ groupId: g.id, fileIndex: 0, fileData: g.files[0] })} className="w-full mt-2 py-2 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-200 transition-colors flex items-center justify-center gap-2 shadow-sm">
-                                            <Icon name="edit-3" size={14} /> {t('editSvg')}
-                                        </button>
-                                    )}
-                                    {g.files.length > 0 && (<div className="mt-2 text-[10px] text-slate-500 text-center">{t('fileCount').replace('{count}', g.files.length).replace('{name}', g.files[g.selectedIdx].name)}</div>)}
+                                    {g.files.length === 1 && <button onClick={() => setEditingFile({ groupId: g.id, fileIndex: 0, fileData: g.files[0] })} className="w-full mt-2 py-2 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-200 transition-colors flex items-center justify-center gap-2 shadow-sm"><Icon name="edit-3" size={14} /> {t('editSvg')}</button>}
+                                    {g.files.length > 0 && <div className="mt-2 text-[10px] text-slate-500 text-center">{t('fileCount').replace('{count}', g.files.length).replace('{name}', g.files[g.selectedIdx].name)}</div>}
                                 </div>
                             ))}
                             <button onClick={addDecorationLayer} className="w-full py-3 border-2 border-dashed border-slate-300 text-slate-500 rounded-xl text-sm font-bold hover:bg-slate-50 hover:border-indigo-400 hover:text-indigo-500 transition-all flex items-center justify-center gap-2"><Icon name="plus-circle" size={18} /> {t('addOther')}</button>
                         </div>
-                        
-                        {/* Footer & Download */}
                         <div className="p-6 border-t bg-white">
                             <button onClick={batchDownload} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow hover:bg-indigo-700 flex justify-center gap-2"><Icon name="download" size={20} /> {t('batchDownload')}</button>
                         </div>
+                        <div className="p-4 text-center">
+                            <div className="text-[10px] text-slate-400">
+                                Created by <span className="font-bold text-slate-500">@Rock_4762</span>
+                            </div>
+                        </div>
                     </div>
-
-                    {/* Main Canvas */}
                     <main className="flex-1 relative overflow-hidden canvas-area flex items-center justify-center" onWheel={handleWheel} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
                          <div className="fixed top-6 right-6 flex items-center gap-4 bg-white/80 backdrop-blur p-2 rounded-xl border shadow-sm z-30 pointer-events-auto">
                             <button onClick={() => setScale(Math.max(0.05, scale - 0.05))} className="p-1 hover:bg-slate-100 rounded"><Icon name="minus" /></button>
