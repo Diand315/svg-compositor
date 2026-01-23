@@ -1,5 +1,3 @@
-# SVG Compositor v1.0
-
 A powerful, lightweight, browser-based tool for composing, editing, and batch-exporting SVG elements. Built as a **Single File Application** using React—no installation or build steps required.
 
 ![Project Screenshot](screenshots/demo.png)
@@ -78,7 +76,3 @@ If a group contains exactly **1 file**, the "Edit SVG" button becomes active. in
 * **Performance**: SVG parsing and rendering are done in-browser. Extremely large or complex SVG files (MBs in size) may cause UI lag.
 * **Smart Trim**: Relies on `getBBox()`. If the SVG has complex clipping paths or masks, the trim might differ slightly from visual bounds.
 * **File Type**: Currently, only `.svg` files are supported.
-
-## Author
-
-Created by **@Rock_4762**
